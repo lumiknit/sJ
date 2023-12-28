@@ -1,0 +1,31 @@
+// Default theme
+
+:root {
+	font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
+	font-weight: 400;
+	font-size: 16px;
+
+	color-scheme: light dark;
+
+	background-color: var(--sj-c-bg);
+	color: var(--sj-c-fg);
+
+	font-synthesis: none;
+	text-rendering: optimizeLegibility;
+	-webkit-font-smoothing: antialiased;
+	-moz-osx-font-smoothing: grayscale;
+}
+
+body {
+	margin: 0;
+}
+
+// Colors
+
+:root {
+	--sj-c-bg: rgb(var(--sj-rgb-bg));
+	--sj-c-fg: rgb(var(--sj-rgb-fg));
+
+	--b-c-bg: rgb(var(--b-rgb-bg));
+	--b-c-fg: rgb(var(--b-rgb-fg));
+}

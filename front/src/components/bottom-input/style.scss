@@ -1,0 +1,38 @@
+.sj-bi {
+	position: fixed;
+	bottom: 0;
+	z-index: 10;
+
+	width: 100dvw;
+	max-height: 90dvh;
+
+	display: flex;
+	flex-direction: column;
+	align-items: stretch;
+	justify-content: center;
+
+	background-color: var(--sj-c-bg);
+	color: var(--sj-c-fg);
+
+	box-shadow: 0 0 0.5rem var(--sj-c-shadow);
+	border-radius: 1rem 1rem 0 0;
+
+	& > .sj-bi-i {
+		padding: 0.5rem;
+
+		& .input-line {
+			display: flex;
+			flex-direction: row;
+			align-items: align-center;
+			justify-content: space-between;
+
+			& > input {
+				flex: 1;
+			}
+
+			& > button {
+				flex: 0;
+			}
+		}
+	}
+}
