@@ -3,7 +3,7 @@ import solid from "vite-plugin-solid";
 import tsconfigPaths from "vite-tsconfig-paths";
 
 export default defineConfig({
-	base: '',
+	base: "",
 	server: {
 		port: 9173,
 		proxy: {},

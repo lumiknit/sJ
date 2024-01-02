@@ -1,23 +1,19 @@
 // Dark theme
 :root[color-theme="dark"] {
-	/* Global colors */
-	--sj-rgb-bg: 32, 32, 32;
-	--sj-rgb-fg: 244, 244, 244;
+	// Basic colors
+	--sj-rgb-bg: 0, 0, 0;
+	--sj-rgb-fg: 255, 255, 255;
+	--sj-rgb-fg-dim: 224, 224, 224;
+	--sj-rgb-fg-dim-2: 192, 192, 192;
+
+	// Panel color
+	--sj-rgb-panel-bg: 32, 32, 32;
+
+	// Main input color
+	--sj-rgb-mi-bg: 48, 48, 48;
+	--sj-rgb-mi-ph-fg: 128, 128, 128;
+	--sj-rgb-mi-hover-fg: 160, 160, 160;
+	--sj-rgb-mi-active-fg: 96, 96, 96;
 
 	--sj-c-shadow: #00000088;
-}
-
-:root[color-theme="dark"] {
-	--b-rgb-fg: 235, 235, 235;
-	--b-rgb-fg-light: 255, 255, 255;
-	--b-rgb-fg-dark: 215, 215, 215;
-	--b-rgb-fg-soft: 215, 215, 215;
-	--b-rgb-fg-hard: 255, 255, 255;
-	--b-rgb-fg-text: var(--b-rgb-black);
-	--b-rgb-bg: 20, 20, 20;
-	--b-rgb-bg-light: 40, 40, 40;
-	--b-rgb-bg-dark: 0, 0, 0;
-	--b-rgb-bg-soft: 40, 40, 40;
-	--b-rgb-bg-hard: 0, 0, 0;
-	--b-rgb-bg-text: var(--b-rgb-white);
 }

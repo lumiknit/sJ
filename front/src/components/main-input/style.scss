@@ -1,0 +1,85 @@
+.sj-bi {
+	position: fixed;
+	bottom: 0;
+	z-index: 10;
+
+	width: 100dvw;
+
+	display: flex;
+	flex-direction: column;
+	align-items: stretch;
+	justify-content: center;
+
+	background-color: rgba(var(--sj-rgb-bg), 0.5);
+	color: rgb(var(--sj-rgb-fg));
+
+	& > .sj-bi-i {
+		margin: 0.5rem 0.5rem;
+	}
+}
+
+// Main input line
+
+.sj-mi-w {
+	background-color: rgb(var(--sj-rgb-mi-bg));
+	border-radius: 0.5rem;
+	padding: 0.5rem 0.25rem;
+}
+
+.sj-mi-ln {
+	display: flex;
+	flex-direction: row;
+	max-height: 50dvh;
+
+	& > button {
+		flex: 0;
+		color: rgb(var(--sj-rgb-mi-ph-fg));
+		background-color: transparent;
+		background-repeat: no-repeat;
+		border: none;
+		outline: none;
+
+		transition: color 0.1s ease-in-out;
+
+		& svg {
+			display: block;
+			font-size: 1.25em;
+		}
+
+		&:hover {
+			color: rgb(var(--sj-rgb-mi-hover-fg));
+		}
+
+		&:active {
+			color: rgb(var(--sj-rgb-mi-active-fg));
+		}
+	}
+
+	& > textarea {
+		flex: 1;
+
+		display: block;
+		max-height: 40dvh;
+		padding: 0;
+
+		color: rgb(var(--sj-rgb-fg));
+		background-color: transparent;
+		border: 0;
+
+		resize: none;
+
+		&:focus {
+			outline: none;
+		}
+	}
+}
+
+textarea.mi-code {
+	font-family: monospace;
+	font-size: 1rem;
+
+	&.hidden {
+		visibility: hidden;
+		height: 0;
+	}
+}

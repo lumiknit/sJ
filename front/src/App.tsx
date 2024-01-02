@@ -1,12 +1,15 @@
 import { Component } from "solid-js";
 
-import { BottomInput } from "./components/bottom-input";
+import { MainInput, MainInputState } from "./components/main-input";
 
 const App: Component<{}> = () => {
+	const mainInputState: MainInputState = {
+		// ...
+	};
 	return (
 		<>
 			Hello, world!
-			<BottomInput />
+			<MainInput s={mainInputState} />
 		</>
 	);
 };

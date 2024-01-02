@@ -1,4 +1,5 @@
 import { Component, Ref, type JSX, onMount } from "solid-js";
+import { Portal } from "solid-js/web";
 
 type TATarget = {
 	target: Element;
@@ -47,12 +48,8 @@ const outdentTextareaContent = (
 	return [interleave(content, s, originalEnd, lines.join("\n")), start, end];
 };
 
-export type Props = {
-	autofocus?: boolean;
-	autoresize?: boolean;
+export type CodeProps = {
 	class?: string;
-	disabled?: boolean;
-	placeholder?: string;
 	value?: string;
 	ref?: Ref<HTMLTextAreaElement>;
 
@@ -61,32 +58,22 @@ export type Props = {
 	onKeyDown?: (e: TATarget & KeyboardEvent) => boolean | undefined;
 };
 
-const InputCode: Component<Props> = props => {
+const InputCode: Component<CodeProps> = props => {
 	let taRef: HTMLTextAreaElement;
 	let hiddenRef: HTMLTextAreaElement;
 
 	const hackRef = (ref: HTMLTextAreaElement) => {
-		taRef = ref;
+		taRef! = ref;
 		if (typeof props.ref === "function") props.ref(ref);
 	};
 
 	const resizeTextarea = (textarea: HTMLTextAreaElement) => {
-		if (!props.autoresize || !hiddenRef) return;
 		hiddenRef.value = textarea.value;
 		hiddenRef.style.width = `${textarea.clientWidth}px`;
 		textarea.style.height = hiddenRef.scrollHeight + "px";
 	};
 
-	onMount(() => {
-		if (props.autoresize) {
-			resizeTextarea(taRef!);
-		}
-		if (props.autofocus) {
-			setTimeout(() => {
-				taRef?.focus();
-			});
-		}
-	});
+	onMount(() => resizeTextarea(taRef));
 
 	const onKeyDown: JSX.EventHandlerUnion<
 			HTMLTextAreaElement,
@@ -111,6 +98,9 @@ const InputCode: Component<Props> = props => {
 						target.value = indentResult[0];
 						target.selectionStart = indentResult[1];
 						target.selectionEnd = indentResult[2];
+						resizeTextarea(
+							event.currentTarget as HTMLTextAreaElement,
+						);
 					}
 					break;
 				case "Enter":
@@ -132,9 +122,16 @@ const InputCode: Component<Props> = props => {
 						);
 						target.selectionStart = target.selectionEnd =
 							start + 1 + indent.length;
+						resizeTextarea(event.target as HTMLTextAreaElement);
 					}
 					break;
 			}
+		},
+		onInput: JSX.EventHandlerUnion<
+			HTMLTextAreaElement,
+			InputEvent
+		> = event => {
+			if (props.onInput && props.onInput(event)) return;
 			resizeTextarea(event.target as HTMLTextAreaElement);
 		},
 		onFocus: JSX.EventHandler<HTMLTextAreaElement, Event> = event => {
@@ -142,25 +139,25 @@ const InputCode: Component<Props> = props => {
 		};
 
 	return (
-		<div class="code-area">
-			<textarea
-				ref={hiddenRef!}
-				disabled
-				class={`form-control abs-lt ${props.class} code-area-hidden no-pointer-events no-user-select`}
-			/>
+		<>
 			<textarea
 				ref={hackRef}
-				autofocus={props.autofocus}
-				disabled={props.disabled}
-				class={`form-control ${props.class}`}
-				placeholder={props.placeholder}
-				value={props.value}
+				class={`mi-code ${props.class}`}
+				value={props.value ?? ""}
+				placeholder="[ sJ ]"
 				onFocus={onFocus}
 				onChange={props.onChange}
-				onInput={props.onInput}
+				onInput={onInput}
 				onKeyDown={onKeyDown}
 			/>
-		</div>
+			<Portal>
+				<textarea
+					ref={hiddenRef!}
+					disabled
+					class={`mi-code hidden ${props.class}`}
+				/>
+			</Portal>
+		</>
 	);
 };
 
