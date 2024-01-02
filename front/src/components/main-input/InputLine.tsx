@@ -1,51 +1,78 @@
-import { Component, Ref } from "solid-js";
-import { State } from "./state";
+import { Component, Match, Switch, createEffect, createSignal } from "solid-js";
+import { State, appendToEditing, executeEditing } from "../state";
 
-import { TbCaretLeft, TbCaretRight, TbSend } from "solid-icons/tb";
-import InputCode from "./InputCode";
-import { describeResult, parse } from "@/core/parser";
-import { convertToExpr } from "@/core/type";
+import { TbCaretLeft, TbCaretRight, TbRocket, TbSend } from "solid-icons/tb";
+import InputCode, { ValueSignal } from "./InputCode";
 
 type Props = {
 	s: State;
 };
 
 const InputLine: Component<Props> = props => {
-	const a = () => alert("a");
-	let taRef: HTMLTextAreaElement;
+	const sig: ValueSignal = createSignal(["", 0, 0]);
+	const [isEmpty, setIsEmpty] = createSignal(true);
 
-	let lastparsed = [[]];
+	createEffect(() => {
+		const [v] = sig[0]();
+		setIsEmpty(v === "");
+	});
+
+	const handleCaretLeftClick = () => {
+		alert("Unimplemented: handleCaretLeftClick");
+	};
+	const handleCaretRightClick = () => {
+		alert("Unimplemented: handleCaretRightClick");
+	};
+
+	const handleSendClick = (): boolean => {
+		const [v, ss, se] = sig[0]();
+		if (v === "") {
+			// Launch
+			executeEditing(props.s);
+			return true;
+		} else {
+			const code = v.slice(0, ss) + v.slice(se);
+			const left = appendToEditing(props.s, code, false);
+			sig[1]([left, left.length, left.length]);
+			return left.length === 0;
+		}
+	};
 
 	const handleKeyDown = (e: KeyboardEvent) => {
-		if (e.key === "Enter" && e.shiftKey) {
-			const v = taRef.value;
-			const result = parse(v, {}, lastparsed);
-			if (describeResult(result) !== undefined) {
-				// Not finished.
-				console.log("Cont.d", result);
-			} else {
-				console.log("Finished", convertToExpr(result.out));
-				lastparsed = [[]];
+		const [v, ss, se] = sig[0]();
+		if (
+			(props.s.o.sendOnSep &&
+				e.key === " " &&
+				se === v.length &&
+				v[ss - 1] === " ") ||
+			e.key === "Enter"
+		) {
+			if (handleSendClick()) {
+				e.preventDefault();
+				return true;
 			}
-			taRef.value = result.left;
-			taRef.selectionStart = taRef.selectionEnd = result.left.length;
-			e.preventDefault();
-			return true;
 		}
 	};
 
 	return (
 		<div class="sj-mi-w">
 			<div class="sj-mi-ln">
-				<button onClick={a}>
+				<button onClick={handleCaretLeftClick}>
 					<TbCaretLeft />
 				</button>
-				<InputCode ref={taRef!} onKeyDown={handleKeyDown} />
-				<button onClick={a}>
+				<InputCode sig={sig} onKeyDown={handleKeyDown} />
+				<button onClick={handleCaretRightClick}>
 					<TbCaretRight />
 				</button>
-				<button onClick={a}>
-					<TbSend />
+				<button onClick={handleSendClick}>
+					<Switch>
+						<Match when={isEmpty()}>
+							<TbRocket />
+						</Match>
+						<Match when={true}>
+							<TbSend />
+						</Match>
+					</Switch>
 				</button>
 			</div>
 		</div>

@@ -1,15 +1,12 @@
 import { Component } from "solid-js";
-
-import { MainInput, MainInputState } from "./components/main-input";
+import SJArea from "./components/SJArea";
+import { State as SJState, defaultOptions, newState } from "./components/state";
 
 const App: Component<{}> = () => {
-	const mainInputState: MainInputState = {
-		// ...
-	};
+	const sjState: SJState = newState(defaultOptions());
 	return (
 		<>
-			Hello, world!
-			<MainInput s={mainInputState} />
+			<SJArea s={sjState} />
 		</>
 	);
 };

@@ -1,4 +1,12 @@
-import { Component, Ref, type JSX, onMount } from "solid-js";
+import {
+	Component,
+	Ref,
+	type JSX,
+	onMount,
+	Signal,
+	createEffect,
+	untrack,
+} from "solid-js";
 import { Portal } from "solid-js/web";
 
 type TATarget = {
@@ -48,10 +56,12 @@ const outdentTextareaContent = (
 	return [interleave(content, s, originalEnd, lines.join("\n")), start, end];
 };
 
+export type ValueSignal = Signal<[string, number, number]>;
+
 export type CodeProps = {
 	class?: string;
-	value?: string;
-	ref?: Ref<HTMLTextAreaElement>;
+
+	sig: ValueSignal;
 
 	onChange?: (e: TATarget & Event) => boolean | undefined;
 	onInput?: (e: TATarget & InputEvent) => boolean | undefined;
@@ -62,18 +72,34 @@ const InputCode: Component<CodeProps> = props => {
 	let taRef: HTMLTextAreaElement;
 	let hiddenRef: HTMLTextAreaElement;
 
-	const hackRef = (ref: HTMLTextAreaElement) => {
-		taRef! = ref;
-		if (typeof props.ref === "function") props.ref(ref);
-	};
-
 	const resizeTextarea = (textarea: HTMLTextAreaElement) => {
 		hiddenRef.value = textarea.value;
 		hiddenRef.style.width = `${textarea.clientWidth}px`;
 		textarea.style.height = hiddenRef.scrollHeight + "px";
 	};
 
+	const afterChange = (e: TATarget & Event) => {
+		const target = e.currentTarget;
+		const ss = target.selectionStart;
+		const se = target.selectionEnd;
+		target.setSelectionRange(ss, ss);
+		target.focus();
+		target.setSelectionRange(ss, se);
+		resizeTextarea(target);
+		if (props.sig) props.sig[1]([target.value, ss, se]);
+	};
+
 	onMount(() => resizeTextarea(taRef));
+	createEffect(() => {
+		const v = props.sig[0]();
+		if (taRef.value !== v[0]) {
+			taRef.value = v[0];
+			resizeTextarea(taRef);
+		}
+		if (taRef.selectionStart !== v[1] || taRef.selectionEnd !== v[2]) {
+			taRef.setSelectionRange(v[1], v[2]);
+		}
+	});
 
 	const onKeyDown: JSX.EventHandlerUnion<
 			HTMLTextAreaElement,
@@ -96,11 +122,11 @@ const InputCode: Component<CodeProps> = props => {
 							target.selectionEnd,
 						);
 						target.value = indentResult[0];
-						target.selectionStart = indentResult[1];
-						target.selectionEnd = indentResult[2];
-						resizeTextarea(
-							event.currentTarget as HTMLTextAreaElement,
+						target.setSelectionRange(
+							indentResult[1],
+							indentResult[2],
 						);
+						afterChange(event);
 					}
 					break;
 				case "Enter":
@@ -120,9 +146,9 @@ const InputCode: Component<CodeProps> = props => {
 							target.selectionEnd,
 							"\n" + indent,
 						);
-						target.selectionStart = target.selectionEnd =
-							start + 1 + indent.length;
-						resizeTextarea(event.target as HTMLTextAreaElement);
+						const p = start + 1 + indent.length;
+						target.setSelectionRange(p, p);
+						afterChange(event);
 					}
 					break;
 			}
@@ -132,20 +158,16 @@ const InputCode: Component<CodeProps> = props => {
 			InputEvent
 		> = event => {
 			if (props.onInput && props.onInput(event)) return;
-			resizeTextarea(event.target as HTMLTextAreaElement);
-		},
-		onFocus: JSX.EventHandler<HTMLTextAreaElement, Event> = event => {
-			resizeTextarea(event.currentTarget as HTMLTextAreaElement);
+			afterChange(event);
 		};
 
 	return (
 		<>
 			<textarea
-				ref={hackRef}
+				ref={taRef!}
 				class={`mi-code ${props.class}`}
-				value={props.value ?? ""}
+				value={untrack(() => props.sig[0]()[0])}
 				placeholder="[ sJ ]"
-				onFocus={onFocus}
 				onChange={props.onChange}
 				onInput={onInput}
 				onKeyDown={onKeyDown}

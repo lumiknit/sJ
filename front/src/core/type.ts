@@ -39,7 +39,14 @@ export const newStkVM = (vm: VM): StkVM => ({
 export type ParsedLiteral = null | boolean | number | string | ParsedLiteral[];
 export type ParseOutput = ParsedLiteral[][];
 
-export type Expr = null | boolean | number | string | Expr[];
+export type Expr =
+	| null
+	| boolean
+	| number
+	| string // String or comment or id
+	| Exprs;
+export type Exprs = Expr[];
+export type ExprCursor = number[];
 
 export const convertToExpr = (out: ParseOutput): Expr | undefined =>
 	out.length === 1 ? out[0] : undefined;

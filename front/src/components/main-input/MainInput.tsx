@@ -1,5 +1,5 @@
 import { Component } from "solid-js";
-import { State } from "./state";
+import { State } from "../state";
 import InputLine from "./InputLine";
 
 type Props = {

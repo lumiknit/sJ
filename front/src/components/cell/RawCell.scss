@@ -1,0 +1,9 @@
+.sjc-raw {
+	// Setting as pre
+	font-size: 0.8rem;
+	font-family: var(--sj-ff-mono);
+	white-space: pre-wrap;
+	word-break: break-all;
+	overflow-wrap: break-word;
+	overflow-x: auto;
+}

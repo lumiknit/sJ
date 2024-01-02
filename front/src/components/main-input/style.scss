@@ -1,5 +1,5 @@
 .sj-bi {
-	position: fixed;
+	position: sticky;
 	bottom: 0;
 	z-index: 10;
 
@@ -10,7 +10,11 @@
 	align-items: stretch;
 	justify-content: center;
 
-	background-color: rgba(var(--sj-rgb-bg), 0.5);
+	//background-color: rgba(var(--sj-rgb-bg), .75);
+	background-image: linear-gradient(
+		rgba(var(--sj-rgb-bg), 0),
+		rgba(var(--sj-rgb-bg), 1)
+	);
 	color: rgb(var(--sj-rgb-fg));
 
 	& > .sj-bi-i {
@@ -33,6 +37,7 @@
 
 	& > button {
 		flex: 0;
+		padding: 0 0.5rem;
 		color: rgb(var(--sj-rgb-mi-ph-fg));
 		background-color: transparent;
 		background-repeat: no-repeat;
@@ -59,7 +64,7 @@
 		flex: 1;
 
 		display: block;
-		max-height: 40dvh;
+		max-height: 6rem;
 		padding: 0;
 
 		color: rgb(var(--sj-rgb-fg));

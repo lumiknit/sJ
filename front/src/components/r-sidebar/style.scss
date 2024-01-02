@@ -1,0 +1,37 @@
+.sj-rs {
+	position: fixed;
+	z-index: 9.5;
+	top: 0;
+	right: 0;
+
+	min-width: 10dvw;
+	max-width: 50dvw;
+	max-height: 100dvh;
+
+	background-image: linear-gradient(
+		to left,
+		rgba(var(--sj-rgb-bg), 0),
+		rgba(var(--sj-rgb-bg), 1)
+	);
+}
+
+button.rs-btn-tg {
+	border: 0;
+	margin: 0;
+	padding: 0.5rem;
+	background-color: transparent;
+	color: rgb(var(--sj-rgb-fg-dim));
+	outline: none;
+
+	& > svg {
+		font-size: 1.5rem;
+	}
+
+	&:focus {
+		color: rgb(var(--sj-rgb-fg));
+	}
+
+	&:active {
+		color: rgb(var(--sj-rgb-fg-dim2));
+	}
+}

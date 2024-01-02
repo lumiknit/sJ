@@ -69,6 +69,12 @@ const parseString = (s: ParseState): boolean => {
 		p++;
 		openCount++;
 	}
+	if (openCount === 2) {
+		// Just return empty string
+		push(s, STRING_PREFIX);
+		s.p = p;
+		return true;
+	}
 	// Put string
 	let buf = "";
 	while (p < s.m) {
