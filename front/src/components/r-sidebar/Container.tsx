@@ -5,9 +5,12 @@ type Props = {};
 
 const Container: Component<Props> = props => {
 	const [open, setOpen] = createSignal(false);
-	const toggleOpen = () => setOpen(!open);
+	const toggleOpen = () => setOpen(!open());
 	return (
-		<div class="sj-rs">
+		<div classList={{
+			"sj-rs": true,
+			"open": open(),
+		}}>
 			<ToggleButton open={open()} toggle={toggleOpen} />
 			<Show when={open()}>Contents</Show>
 		</div>

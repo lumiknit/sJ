@@ -4,15 +4,15 @@
 	top: 0;
 	right: 0;
 
-	min-width: 10dvw;
-	max-width: 50dvw;
+	max-width: 40dvw;
 	max-height: 100dvh;
 
-	background-image: linear-gradient(
-		to left,
-		rgba(var(--sj-rgb-bg), 0),
-		rgba(var(--sj-rgb-bg), 1)
-	);
+	background-color: rgba(var(--sj-rgb-bg), 0.5);
+}
+
+.sj-rs.open {
+	width: 25rem;
+	height: 100vh;
 }
 
 button.rs-btn-tg {

@@ -44,7 +44,9 @@ const InputLine: Component<Props> = props => {
 			(props.s.o.sendOnSep &&
 				e.key === " " &&
 				se === v.length &&
-				v[ss - 1] === " ") ||
+				(props.s.o.spaceAsSep ||
+				v[ss - 1] === " ")
+			) ||
 			e.key === "Enter"
 		) {
 			if (handleSendClick()) {

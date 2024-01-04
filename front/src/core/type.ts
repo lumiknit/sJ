@@ -24,12 +24,12 @@ export const newVM = (): VM => ({
 	trigger: () => {},
 });
 
-export type StkVM = {
+export type Thread = {
 	vm: VM;
 	stk: any[];
 };
 
-export const newStkVM = (vm: VM): StkVM => ({
+export const newThread = (vm: VM): Thread => ({
 	vm,
 	stk: [],
 });
