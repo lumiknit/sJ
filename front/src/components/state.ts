@@ -1,5 +1,10 @@
+import {
+	CuttedExprsPair,
+	emptyCuttedExprsPair,
+	exprToString,
+	joinCuttedExprPair,
+} from "@/core/expr";
 import { describeResult, parse } from "@/core/parser";
-import { Expr, ParseOutput, convertToExpr } from "@/core/type";
 import { Signal, createSignal } from "solid-js";
 
 export type Options = {
@@ -13,8 +18,7 @@ export const defaultOptions = (): Options => ({
 });
 
 export type EditingState = {
-	out: Expr;
-	cursor: number[];
+	c: CuttedExprsPair;
 };
 
 export type Cell = {
@@ -30,7 +34,6 @@ export type State = {
 
 	// Editings
 	e: Signal<EditingState>;
-	lastParsed: ParseOutput;
 	eMsg?: string;
 
 	// Cells
@@ -44,11 +47,12 @@ export type State = {
 
 export const newState = (options: Options): State => {
 	return {
-		e: createSignal<EditingState>({
-			out: [],
-			cursor: [0],
-		}),
-		lastParsed: [[]],
+		e: createSignal<EditingState>(
+			{
+				c: emptyCuttedExprsPair(),
+			},
+			{ equals: false },
+		),
 		cells: createSignal<Signal<Cell>[]>([]),
 		o: options,
 	};
@@ -93,29 +97,23 @@ export const appendToEditing = (
 	chunk: string,
 	launchIfParsed?: boolean,
 ) => {
-	const result = parse(
-		chunk,
-		{
+	state.e[1](es => {
+		const result = parse(es.c, chunk, {
 			spaceAsSep: state.o.spaceAsSep,
-		},
-		state.lastParsed,
-	);
-	state.eMsg = describeResult(result);
-	if (state.eMsg) {
-		// Not finished.
-		console.log("Cont.d", state.eMsg, result);
-		pushRawCell(state, `Cont.d: ${state.eMsg}, ${result.left}`);
-		state.lastParsed = result.out;
-	} else {
-		console.log("Finished", convertToExpr(result.out));
-		pushRawCell(state, `Finished: ${convertToExpr(result.out)}`);
-		state.e[1]({
-			out: result.out,
-			cursor: [result.left.length],
 		});
-		state.lastParsed = [[]];
-	}
-	return result.left;
+		state.eMsg = describeResult(result);
+		if (state.eMsg) {
+			// Not finished.
+			console.log("Cont.d", state.eMsg, result);
+			pushRawCell(state, `Cont.d: ${state.eMsg}, ${result.left}`);
+		} else {
+			console.log("Finished", result, state.e[0]().c);
+			const merged = joinCuttedExprPair(es.c);
+			const s = exprToString(merged);
+			pushRawCell(state, `Finished: ${s}`);
+		}
+		return es;
+	});
 };
 
 export const executeEditing = (state: State) => {

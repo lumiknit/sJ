@@ -1,4 +1,10 @@
-import { ParseOutput, ParsedLiteral } from "./type";
+import {
+	CuttedExprsPair,
+	Expr,
+	closeCuttedExprs,
+	openCuttedExprs,
+	pushExprToCuttedExprs,
+} from "./expr";
 
 export const STRING_PREFIX = '"';
 export const COMMENT_PREFIX = "#";
@@ -10,7 +16,6 @@ export type ParseOptions = {
 export type ParseResult = {
 	p: number;
 	left: string;
-	out: ParsedLiteral[][];
 };
 
 export const describeResult = (result: ParseResult): string | undefined => {
@@ -24,20 +29,16 @@ export const describeResult = (result: ParseResult): string | undefined => {
 		}
 		return "Unknown error with `" + result.left[0] + "`";
 	}
-	if (result.out.length > 1) {
-		return "Unclosed";
-	}
 	// OK
 	return undefined;
 };
 
 type ParseState = {
-	s: string;
-	p: number;
-	m: number;
-	l: string[];
+	c: CuttedExprsPair; // Destination
+	s: string; // Source String
+	p: number; // Current position
+	m: number; // Max position = Length
 	o: ParseOptions;
-	out: ParseOutput;
 };
 
 const match = (s: ParseState, re: RegExp) => {
@@ -45,8 +46,8 @@ const match = (s: ParseState, re: RegExp) => {
 	return re.exec(s.s);
 };
 
-const push = (s: ParseState, v: ParsedLiteral) => {
-	s.out[s.out.length - 1].push(v);
+const push = (s: ParseState, v: Expr) => {
+	pushExprToCuttedExprs(s.c, v);
 };
 
 const skipWhitespaces = (s: ParseState): void => {
@@ -162,15 +163,11 @@ const parseOne = (s: ParseState): boolean => {
 			return true;
 		case "(":
 			s.p++;
-			s.out.push([]);
+			openCuttedExprs(s.c);
 			return true;
 		case ")":
 			s.p++;
-			if (s.out.length <= 1) {
-				return false;
-			}
-			const out = s.out.pop();
-			push(s, out!);
+			closeCuttedExprs(s.c);
 			return true;
 		case '"':
 		case "'":
@@ -183,22 +180,20 @@ const parseOne = (s: ParseState): boolean => {
 };
 
 export const parse = (
+	dst: CuttedExprsPair,
 	input: string,
 	options: ParseOptions,
-	lastOutput?: ParseOutput,
 ): ParseResult => {
 	const s: ParseState = {
+		c: dst,
 		s: input,
 		p: 0,
 		m: input.length,
-		l: [],
 		o: options,
-		out: lastOutput ?? [[]],
 	};
 	while (s.p < s.m && parseOne(s));
 	return {
 		p: s.p,
 		left: s.s.slice(s.p),
-		out: s.out,
 	};
 };
