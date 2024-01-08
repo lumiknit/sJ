@@ -2,6 +2,7 @@
 :root[color-theme="dark"] {
 	// Basic colors
 	--sj-rgb-bg: 0, 0, 0;
+	--sj-rgb-bg-dim: 32, 32, 32;
 	--sj-rgb-fg: 255, 255, 255;
 	--sj-rgb-fg-dim: 224, 224, 224;
 	--sj-rgb-fg-dim-2: 192, 192, 192;
@@ -16,4 +17,9 @@
 	--sj-rgb-mi-active-fg: 96, 96, 96;
 
 	--sj-c-shadow: #00000088;
+
+	// Editing colors
+	--sj-rgb-x-num: 16, 128, 208;
+	--sj-rgb-x-str: 236, 188, 91;
+	--sj-rgb-x-comment: 134, 134, 134;
 }

@@ -1,5 +1,12 @@
 import { Component, Match, Switch, createEffect, createSignal } from "solid-js";
-import { State, appendToEditing, executeEditing } from "../state";
+import {
+	State,
+	appendToEditing,
+	backspaceToken,
+	executeEditing,
+	moveCursorLeft,
+	moveCursorRight,
+} from "../state";
 
 import { TbCaretLeft, TbCaretRight, TbRocket, TbSend } from "solid-icons/tb";
 import InputCode, { ValueSignal } from "./InputCode";
@@ -18,10 +25,10 @@ const InputLine: Component<Props> = props => {
 	});
 
 	const handleCaretLeftClick = () => {
-		alert("Unimplemented: handleCaretLeftClick");
+		moveCursorLeft(props.s);
 	};
 	const handleCaretRightClick = () => {
-		alert("Unimplemented: handleCaretRightClick");
+		moveCursorRight(props.s);
 	};
 
 	const handleSendClick = (): boolean => {
@@ -40,6 +47,29 @@ const InputLine: Component<Props> = props => {
 
 	const handleKeyDown = (e: KeyboardEvent) => {
 		const [v, ss, se] = sig[0]();
+		switch (e.key) {
+			case "ArrowLeft":
+				if (ss === se && ss === 0) {
+					moveCursorLeft(props.s);
+					e.preventDefault();
+					return true;
+				}
+				break;
+			case "ArrowRight":
+				if (ss === se && ss === v.length) {
+					moveCursorRight(props.s);
+					e.preventDefault();
+					return true;
+				}
+				break;
+			case "Backspace":
+				if (ss === se && ss === 0) {
+					e.preventDefault();
+					backspaceToken(props.s);
+					return true;
+				}
+				break;
+		}
 		if (
 			(props.s.o.sendOnSep &&
 				e.key === " " &&
@@ -60,7 +90,11 @@ const InputLine: Component<Props> = props => {
 				<button onClick={handleCaretLeftClick}>
 					<TbCaretLeft />
 				</button>
-				<InputCode sig={sig} onKeyDown={handleKeyDown} />
+				<InputCode
+					ref={props.s.miRef}
+					sig={sig}
+					onKeyDown={handleKeyDown}
+				/>
 				<button onClick={handleCaretRightClick}>
 					<TbCaretRight />
 				</button>

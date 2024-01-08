@@ -36,3 +36,7 @@ div#root {
 	height: 100dvh;
 	position: absolute;
 }
+
+button {
+	touch-action: manipulation;
+}

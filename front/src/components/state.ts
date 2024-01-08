@@ -1,10 +1,10 @@
-import {
-	CuttedExprsPair,
-	emptyCuttedExprsPair,
-	exprToString,
-	joinCuttedExprPair,
-} from "@/core/expr";
 import { describeResult, parse } from "@/core/parser";
+import {
+	TokenZipper,
+	deleteTokens,
+	emptyTokenZipper,
+	moveTokenZipperInplace,
+} from "@/core/token";
 import { Signal, createSignal } from "solid-js";
 
 export type Options = {
@@ -18,7 +18,7 @@ export const defaultOptions = (): Options => ({
 });
 
 export type EditingState = {
-	c: CuttedExprsPair;
+	ez: TokenZipper;
 };
 
 export type Cell = {
@@ -35,6 +35,7 @@ export type State = {
 	// Editings
 	e: Signal<EditingState>;
 	eMsg?: string;
+	miRef?: HTMLTextAreaElement;
 
 	// Cells
 	cells: Signal<Signal<Cell>[]>;
@@ -49,7 +50,7 @@ export const newState = (options: Options): State => {
 	return {
 		e: createSignal<EditingState>(
 			{
-				c: emptyCuttedExprsPair(),
+				ez: emptyTokenZipper(),
 			},
 			{ equals: false },
 		),
@@ -85,6 +86,10 @@ const scrollToBottom = (state: State) => {
 	}
 };
 
+const focusMainInput = (state: State) => {
+	state.miRef?.focus();
+};
+
 const pushRawCell = (state: State, data: string) => {
 	state.cells[1](cs => [...cs, createSignal({ type: "raw", data })]);
 	scrollToBottom(state);
@@ -92,28 +97,59 @@ const pushRawCell = (state: State, data: string) => {
 
 // Methods
 
+export const moveCursorLeft = (state: State) => {
+	state.e[1](es => {
+		moveTokenZipperInplace(es.ez, es.ez[0].length - 1);
+		return es;
+	});
+	focusMainInput(state);
+};
+
+export const moveCursorRight = (state: State) => {
+	state.e[1](es => {
+		moveTokenZipperInplace(es.ez, es.ez[0].length + 1);
+		return es;
+	});
+	focusMainInput(state);
+};
+
+export const moveCursorAt = (state: State, pos: number) => {
+	state.e[1](es => {
+		moveTokenZipperInplace(es.ez, pos);
+		return es;
+	});
+	focusMainInput(state);
+};
+
+export const backspaceToken = (state: State) => {
+	state.e[1](es => {
+		deleteTokens(es.ez);
+		return es;
+	});
+};
+
 export const appendToEditing = (
 	state: State,
 	chunk: string,
 	launchIfParsed?: boolean,
-) => {
+): string => {
+	let r = chunk;
 	state.e[1](es => {
-		const result = parse(es.c, chunk, {
+		const result = parse(es.ez, chunk, {
 			spaceAsSep: state.o.spaceAsSep,
 		});
 		state.eMsg = describeResult(result);
 		if (state.eMsg) {
 			// Not finished.
 			console.log("Cont.d", state.eMsg, result);
-			pushRawCell(state, `Cont.d: ${state.eMsg}, ${result.left}`);
 		} else {
-			console.log("Finished", result, state.e[0]().c);
-			const merged = joinCuttedExprPair(es.c);
-			const s = exprToString(merged);
-			pushRawCell(state, `Finished: ${s}`);
+			console.log("Finished", result, es.ez);
 		}
+		r = r.slice(result.p);
 		return es;
 	});
+	scrollToBottom(state);
+	return r;
 };
 
 export const executeEditing = (state: State) => {

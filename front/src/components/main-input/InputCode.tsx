@@ -60,6 +60,7 @@ export type ValueSignal = Signal<[string, number, number]>;
 
 export type CodeProps = {
 	class?: string;
+	ref?: Ref<HTMLTextAreaElement>;
 
 	sig: ValueSignal;
 
@@ -71,6 +72,11 @@ export type CodeProps = {
 const InputCode: Component<CodeProps> = props => {
 	let taRef: HTMLTextAreaElement;
 	let hiddenRef: HTMLTextAreaElement;
+
+	const hackRef = (ref: HTMLTextAreaElement) => {
+		taRef = ref;
+		if (typeof props.ref === "function") props.ref(ref);
+	};
 
 	const resizeTextarea = (textarea: HTMLTextAreaElement) => {
 		hiddenRef.value = textarea.value;
@@ -164,7 +170,7 @@ const InputCode: Component<CodeProps> = props => {
 	return (
 		<>
 			<textarea
-				ref={taRef!}
+				ref={hackRef}
 				class={`mi-code ${props.class}`}
 				value={untrack(() => props.sig[0]()[0])}
 				placeholder="[ sJ ]"

@@ -2,7 +2,7 @@ import { Component, For } from "solid-js";
 import { State } from "./state";
 import { MainInput } from "./main-input";
 import { Dynamic } from "solid-js/web";
-import { CELL_TYPE_TO_COMPONENT } from "./cell";
+import { CELL_TYPE_TO_COMPONENT, EditingCell } from "./cell";
 
 import "./style.scss";
 import { RightSidebarContainer } from "./r-sidebar";
@@ -31,6 +31,7 @@ const SJArea: Component<Props> = props => {
 						</div>
 					)}
 				</For>
+				<EditingCell s={props.s} />
 			</div>
 
 			{/* Bottom input */}

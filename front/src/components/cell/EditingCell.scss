@@ -1,0 +1,38 @@
+.sj-c-e {
+	margin: 0.25rem;
+	padding: 0.25rem;
+	border-radius: 0.5rem;
+	background: rgb(var(--sj-rgb-bg-dim));
+
+	& .cursor {
+		display: inline-block;
+		background-color: rgb(var(--sj-rgb-fg));
+		max-width: 2px;
+		overflow: hidden;
+		font-size: 0.875rem;
+		vertical-align: top;
+	}
+}
+
+.sj-c-et {
+	font-family: monospace;
+	font-size: 0.875rem;
+	padding: 0 0.25rem;
+	white-space: pre-wrap;
+
+	&.marked {
+		background-color: #f5f5f5;
+	}
+
+	&.t-num {
+		color: rgb(var(--sj-rgb-x-num));
+	}
+
+	&.t-str {
+		color: rgb(var(--sj-rgb-x-str));
+	}
+
+	&.t-comment {
+		color: rgb(var(--sj-rgb-x-comment));
+	}
+}

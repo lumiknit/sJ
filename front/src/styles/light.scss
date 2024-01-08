@@ -4,6 +4,7 @@
 :root {
 	// Basic colors
 	--sj-rgb-bg: 255, 255, 255;
+	--sj-rgb-bg-dim: 240, 240, 240;
 	--sj-rgb-fg: 0, 0, 0;
 	--sj-rgb-fg-dim: 96, 96, 96;
 	--sj-rgb-fg-dim-2: 128, 128, 128;
@@ -16,6 +17,11 @@
 	--sj-rgb-mi-ph-fg: 128, 128, 128;
 	--sj-rgb-mi-hover-fg: 96, 96, 96;
 	--sj-rgb-mi-active-fg: 160, 160, 160;
+
+	// Editing colors
+	--sj-rgb-x-num: 68, 127, 196;
+	--sj-rgb-x-str: 89, 126, 65;
+	--sj-rgb-x-comment: 128, 128, 128;
 
 	--sj-c-shadow: #00000033;
 }

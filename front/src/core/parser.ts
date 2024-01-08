@@ -1,10 +1,4 @@
-import {
-	CuttedExprsPair,
-	Expr,
-	closeCuttedExprs,
-	openCuttedExprs,
-	pushExprToCuttedExprs,
-} from "./expr";
+import { TokenZipper, pushToken } from "./token";
 
 export const STRING_PREFIX = '"';
 export const COMMENT_PREFIX = "#";
@@ -34,7 +28,7 @@ export const describeResult = (result: ParseResult): string | undefined => {
 };
 
 type ParseState = {
-	c: CuttedExprsPair; // Destination
+	z: TokenZipper; // Destination
 	s: string; // Source String
 	p: number; // Current position
 	m: number; // Max position = Length
@@ -46,16 +40,12 @@ const match = (s: ParseState, re: RegExp) => {
 	return re.exec(s.s);
 };
 
-const push = (s: ParseState, v: Expr) => {
-	pushExprToCuttedExprs(s.c, v);
-};
-
 const skipWhitespaces = (s: ParseState): void => {
 	const m = match(s, /\s+/y);
 	if (m) {
 		// Check newline is included
 		if (m[0].indexOf("\n") >= 0) {
-			push(s, COMMENT_PREFIX);
+			pushToken(s.z, COMMENT_PREFIX);
 		}
 		s.p += m[0].length;
 	}
@@ -72,7 +62,7 @@ const parseString = (s: ParseState): boolean => {
 	}
 	if (openCount === 2) {
 		// Just return empty string
-		push(s, STRING_PREFIX);
+		pushToken(s.z, STRING_PREFIX);
 		s.p = p;
 		return true;
 	}
@@ -87,7 +77,7 @@ const parseString = (s: ParseState): boolean => {
 				closeCount++;
 			}
 			if (closeCount >= openCount) {
-				push(s, STRING_PREFIX + buf);
+				pushToken(s.z, STRING_PREFIX + buf);
 				s.p = p;
 				return true;
 			}
@@ -135,14 +125,14 @@ const parseLiteral = (s: ParseState): boolean => {
 	// Check if it is a number
 	const num = parseFloat(buf);
 	if (!isNaN(num)) {
-		push(s, num);
+		pushToken(s.z, num);
 		return true;
 	}
 	// Otherwise, consider as a symbol
 	if (buf === "") {
 		return false;
 	}
-	push(s, buf);
+	pushToken(s.z, buf);
 	return true;
 };
 
@@ -153,21 +143,19 @@ const parseOne = (s: ParseState): boolean => {
 			return true;
 		case "#":
 			// Skip comment
-			const m = match(s, /#(.+)(\n\s*|$)/y);
+			const m = match(s, /#(.*)(\n\s*|$)/y);
 			if (!m) throw new Error("Unreachable");
 			const comment = m[1].trim();
-			if (comment) {
-				push(s, COMMENT_PREFIX + comment);
-			}
+			pushToken(s.z, COMMENT_PREFIX + comment);
 			s.p += m[0].length;
 			return true;
 		case "(":
 			s.p++;
-			openCuttedExprs(s.c);
+			pushToken(s.z, "(");
 			return true;
 		case ")":
 			s.p++;
-			closeCuttedExprs(s.c);
+			pushToken(s.z, ")");
 			return true;
 		case '"':
 		case "'":
@@ -180,12 +168,12 @@ const parseOne = (s: ParseState): boolean => {
 };
 
 export const parse = (
-	dst: CuttedExprsPair,
+	dst: TokenZipper,
 	input: string,
 	options: ParseOptions,
 ): ParseResult => {
 	const s: ParseState = {
-		c: dst,
+		z: dst,
 		s: input,
 		p: 0,
 		m: input.length,
