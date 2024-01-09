@@ -1,11 +1,11 @@
 import { Component, For } from "solid-js";
-import { State } from "./state";
-import { MainInput } from "./main-input";
 import { Dynamic } from "solid-js/web";
 import { CELL_TYPE_TO_COMPONENT, EditingCell } from "./cell";
+import { MainInput } from "./main-input";
+import { State } from "./state";
 
-import "./style.scss";
 import { RightSidebarContainer } from "./r-sidebar";
+import "./style.scss";
 
 type Props = {
 	s: State;

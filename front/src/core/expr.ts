@@ -9,6 +9,33 @@ export type Expr =
 	| Exprs;
 export type Exprs = Expr[];
 
+export enum ExprType {
+	Number,
+	String,
+	Comment,
+	Id,
+	Exprs,
+}
+
+export const exprType = (e: Expr): ExprType => {
+	switch (typeof e) {
+		case "number":
+			return ExprType.Number;
+		case "string":
+			switch (e.charAt(0)) {
+				case COMMENT_PREFIX:
+					return ExprType.Comment;
+				case STRING_PREFIX:
+					return ExprType.String;
+				default:
+					return ExprType.Id;
+			}
+	}
+	return ExprType.Exprs;
+};
+
+// Token to expr parser
+
 export const tokensToExpr = (ts: Tokens): Exprs => {
 	const ess: Exprs[] = [[]];
 	for (const t of ts) {
@@ -30,30 +57,51 @@ export const tokensToExpr = (ts: Tokens): Exprs => {
 	return ess[0];
 };
 
+// Expr stringify
+
 export const exprsToString = (es: Exprs, indent?: number): string => {
 	if (indent === undefined) indent = 0;
-	let s = "";
-	let sp = false;
+	let s = "",
+		sp = false;
 	for (const e of es) {
 		if (sp) s += " ";
 		else sp = true;
-		if (Array.isArray(e)) {
-			s += `(${exprsToString(e, indent)})`;
-		} else if (typeof e === "string") {
-			if (e.startsWith(COMMENT_PREFIX)) {
-				s += `# ${e.slice(1)}\n${"  ".repeat(indent)})}`;
+		switch (exprType(e)) {
+			case ExprType.Exprs:
+				s += `(${exprsToString(e as Exprs, indent)})`;
+				break;
+			case ExprType.Comment:
+				s += `# ${(e as string).slice(1)}\n${"  ".repeat(indent)})}`;
 				sp = false;
-			} else if (e.startsWith(STRING_PREFIX)) {
-				s +=
-					'"' +
-					e.slice(1).replace('"', '\\"').replace("\\", "\\\\") +
-					'"';
-			} else {
-				s += e;
-			}
-		} else {
-			s += e.toString();
+				break;
+			case ExprType.String:
+				s += `"${(e as string).slice(1)}"`;
+				break;
+			default:
+				s += e.toString();
 		}
 	}
 	return s;
+};
+
+// Normalize exprs
+
+export const normalizeExprs = (es: Exprs): Exprs => {
+	// Remove unnecessary comments
+	const ess: Exprs = [];
+	for (let e of es) {
+		const t = exprType(e);
+		switch (exprType(e)) {
+			case ExprType.Comment:
+				break;
+			case ExprType.Exprs:
+				ess.push(normalizeExprs(e as Exprs));
+				break;
+			case ExprType.Id:
+				ess.push((e as string).toLowerCase());
+			default:
+				ess.push(e);
+		}
+	}
+	return ess;
 };

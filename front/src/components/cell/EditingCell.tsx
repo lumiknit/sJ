@@ -1,10 +1,11 @@
-import { Component, For, JSX, Match, Switch, createEffect } from "solid-js";
-import { State, moveCursorAt } from "../state";
 import { Token, Tokens } from "@/core/token";
+import { Component, For, JSX } from "solid-js";
+import { State, moveCursorAt } from "../state";
 
-import "./EditingCell.scss";
 import { COMMENT_PREFIX, STRING_PREFIX } from "@/core/parser";
+import { TbWriting } from "solid-icons/tb";
 import { Dynamic } from "solid-js/web";
+import "./EditingCell.scss";
 
 type TokenProps = {
 	s: State;
@@ -21,10 +22,11 @@ const TokenComponent: Component<TokenProps> = props => {
 		const r = e.target.getBoundingClientRect();
 		const x = e.clientX;
 		const o = x - r.left < r.width / 2 ? 0 : 1;
-		console.log(props.idx);
-		moveCursorAt(props.s, props.idx + o);
+		const km = e.shiftKey ? e.shiftKey : undefined;
+		moveCursorAt(props.s, props.idx + o, km);
 		e.preventDefault();
 	};
+
 	const choose = (v: Token): Component<TokenProps> => {
 		if (typeof v === "number")
 			return props => (
@@ -74,33 +76,41 @@ const TokenComponent: Component<TokenProps> = props => {
 			</span>
 		);
 	};
-	return <Dynamic component={choose(props.token)} {...props} />;
+	return (
+		<>
+			<Dynamic component={choose(props.token)} {...props} />
+			<span
+				classList={{
+					"sj-c-etsp": true,
+					marked: props.marked,
+				}}
+				onClick={handleClick}>
+				&nbsp;
+			</span>
+		</>
+	);
 };
 
 type TokensProps = {
 	s: State;
 	off: number;
+	left: boolean;
 	cur: number;
 	tokens: Tokens;
 };
 
 const TokensComponent: Component<TokensProps> = props => {
 	return (
-		<>
-			<For each={props.tokens}>
-				{(token, idx) => (
-					<>
-						<TokenComponent
-							s={props.s}
-							idx={idx() + props.off}
-							marked={props.cur <= idx() + props.off}
-							token={token}
-						/>
-						&nbsp;
-					</>
-				)}
-			</For>
-		</>
+		<For each={props.tokens}>
+			{(token, idx) => (
+				<TokenComponent
+					s={props.s}
+					idx={idx() + props.off}
+					marked={props.left == props.cur <= idx() + props.off}
+					token={token}
+				/>
+			)}
+		</For>
 	);
 };
 
@@ -109,15 +119,14 @@ type Props = {
 };
 
 const EditingCell: Component<Props> = props => {
-	createEffect(() => {
-		console.log(props.s.e[0]());
-	});
+	const cur = () => props.s.e[0]().ez[2] ?? props.s.e[0]().ez[0].length;
 	return (
 		<div class="sj-c-e">
 			<TokensComponent
 				s={props.s}
 				off={0}
-				cur={props.s.e[0]().ez[2] ?? Infinity}
+				left
+				cur={cur()}
 				tokens={props.s.e[0]().ez[0]}
 			/>
 
@@ -126,9 +135,12 @@ const EditingCell: Component<Props> = props => {
 			<TokensComponent
 				s={props.s}
 				off={props.s.e[0]().ez[0].length}
-				cur={props.s.e[0]().ez[2] ?? Infinity}
+				left={false}
+				cur={cur()}
 				tokens={Array.from(props.s.e[0]().ez[1]).reverse()}
 			/>
+
+			<TbWriting class="sj-c-e-ic" />
 		</div>
 	);
 };

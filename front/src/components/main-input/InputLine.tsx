@@ -1,4 +1,11 @@
-import { Component, Match, Switch, createEffect, createSignal } from "solid-js";
+import {
+	Component,
+	Match,
+	Switch,
+	createEffect,
+	createSignal,
+	onMount,
+} from "solid-js";
 import {
 	State,
 	appendToEditing,
@@ -8,6 +15,7 @@ import {
 	moveCursorRight,
 } from "../state";
 
+import { addClickEvents } from "@/common";
 import { TbCaretLeft, TbCaretRight, TbRocket, TbSend } from "solid-icons/tb";
 import InputCode, { ValueSignal } from "./InputCode";
 
@@ -19,17 +27,32 @@ const InputLine: Component<Props> = props => {
 	const sig: ValueSignal = createSignal(["", 0, 0]);
 	const [isEmpty, setIsEmpty] = createSignal(true);
 
+	let caretLeftRef: HTMLButtonElement;
+	let caretRightRef: HTMLButtonElement;
+
 	createEffect(() => {
 		const [v] = sig[0]();
 		setIsEmpty(v === "");
 	});
 
-	const handleCaretLeftClick = () => {
-		moveCursorLeft(props.s);
-	};
-	const handleCaretRightClick = () => {
-		moveCursorRight(props.s);
-	};
+	onMount(() => {
+		addClickEvents(caretLeftRef, {
+			click: () => {
+				moveCursorLeft(props.s);
+			},
+			longClick: () => {
+				moveCursorLeft(props.s, true);
+			},
+		});
+		addClickEvents(caretRightRef, {
+			click: () => {
+				moveCursorRight(props.s);
+			},
+			longClick: () => {
+				moveCursorRight(props.s, true);
+			},
+		});
+	});
 
 	const handleSendClick = (): boolean => {
 		const [v, ss, se] = sig[0]();
@@ -46,18 +69,24 @@ const InputLine: Component<Props> = props => {
 	};
 
 	const handleKeyDown = (e: KeyboardEvent) => {
-		const [v, ss, se] = sig[0]();
+		let [v, ss, se] = sig[0]();
+		const miRef = props.s.miRef;
+		if (miRef) {
+			v = miRef.value;
+			ss = miRef.selectionStart;
+			se = miRef.selectionEnd;
+		}
 		switch (e.key) {
 			case "ArrowLeft":
 				if (ss === se && ss === 0) {
-					moveCursorLeft(props.s);
+					moveCursorLeft(props.s, e.shiftKey);
 					e.preventDefault();
 					return true;
 				}
 				break;
 			case "ArrowRight":
 				if (ss === se && ss === v.length) {
-					moveCursorRight(props.s);
+					moveCursorRight(props.s, e.shiftKey);
 					e.preventDefault();
 					return true;
 				}
@@ -87,7 +116,7 @@ const InputLine: Component<Props> = props => {
 	return (
 		<div class="sj-mi-w">
 			<div class="sj-mi-ln">
-				<button onClick={handleCaretLeftClick}>
+				<button ref={caretLeftRef!}>
 					<TbCaretLeft />
 				</button>
 				<InputCode
@@ -95,7 +124,7 @@ const InputLine: Component<Props> = props => {
 					sig={sig}
 					onKeyDown={handleKeyDown}
 				/>
-				<button onClick={handleCaretRightClick}>
+				<button ref={caretRightRef!}>
 					<TbCaretRight />
 				</button>
 				<button onClick={handleSendClick}>

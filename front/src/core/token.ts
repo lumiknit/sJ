@@ -1,7 +1,5 @@
 // Expr
 
-import { COMMENT_PREFIX, STRING_PREFIX } from "./parser";
-
 export type Token = number | string; // String or comment or id
 export type Tokens = Token[];
 
@@ -25,18 +23,12 @@ export const moveTokenZipperInplace = (
 	pos: number,
 ): TokenZipper => {
 	const [l, r, c] = z;
+	pos = Math.min(Math.max(pos, 0), l.length + r.length);
 	if (pos > l.length) {
-		pos -= l.length;
-		if (pos >= r.length) {
-			pos = r.length;
-		}
-		const n = r.length - pos;
+		const n = r.length - (pos - l.length);
 		l.push(...r.slice(n).reverse());
 		r.splice(n);
 	} else if (pos < l.length) {
-		if (pos < 0) {
-			pos = 0;
-		}
 		r.push(...l.slice(pos).reverse());
 		l.splice(pos);
 	}

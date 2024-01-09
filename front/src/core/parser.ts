@@ -105,28 +105,43 @@ const parseString = (s: ParseState): boolean => {
 
 const parseLiteral = (s: ParseState): boolean => {
 	// Extract chars
-	const re = /[^()\s#"@]+/y;
+	const re = /[^()\s#"@:]+/y;
+	const modRE = /\s*:\s*/y;
 	let buf = "";
 	do {
 		const m = match(s, re);
-		if (!m) break;
-		s.p = re.lastIndex;
-		buf += m[0];
-		console.log(s.s[s.p], !s.o.spaceAsSep, s.s[s.p] === " ");
+		if (m) {
+			s.p = re.lastIndex;
+			buf += m[0];
+		}
+		// Check module separator
+		const m2 = match(s, modRE);
+		if (m2) {
+			console.log(m2);
+			s.p = modRE.lastIndex;
+			buf += ":";
+		} else if (!m) {
+			break;
+		}
+		// Check separator
 		if (!s.o.spaceAsSep && s.s[s.p] === " ") {
 			s.p++;
 			buf += " ";
 		}
 	} while (true);
 	// Replace _ and white into a single underbar
-	buf = buf.replace(/[_ ]+/g, "_");
 	// Strip front/back underbar
-	buf = buf.replace(/^_+|_+$/g, "");
-	// Check if it is a number
-	const num = parseFloat(buf);
-	if (!isNaN(num)) {
+	buf = buf.replace(/[_ ]+/g, "_").replace(/^_+|_+$/g, "");
+	// Extract the part of number
+	const numRE = /^[-+]?[0-9]+(\.[0-9]+)?([eE][-+]?[0-9]+)?/;
+	const numMatch = buf.match(numRE);
+	if (numMatch) {
+		const num = parseFloat(numMatch[0]);
 		pushToken(s.z, num);
-		return true;
+		buf = buf.slice(numMatch[0].length).replace(/^_+|_+$/g, "");
+		if (buf.length === 0) {
+			return true;
+		}
 	}
 	// Otherwise, consider as a symbol
 	if (buf === "") {
