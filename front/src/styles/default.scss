@@ -40,3 +40,8 @@ div#root {
 button {
 	touch-action: manipulation;
 }
+
+.sj-toast {
+	color: rgb(var(--sj-rgb-fg)) !important;
+	background: rgb(var(--sj-rgb-bg-dim)) !important;
+}

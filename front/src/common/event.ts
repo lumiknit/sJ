@@ -22,7 +22,10 @@ export const addClickEvents = (el: HTMLElement, events: ClickEvents) => {
 		if (pressTO !== null) {
 			clearTimeout(pressTO);
 			pressTO = null;
-			events.click?.();
+			if (events.click) {
+				setTimeout(events.click, 0);
+				e.preventDefault();
+			}
 		}
 	});
 };

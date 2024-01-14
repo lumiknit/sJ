@@ -20,15 +20,18 @@ const SJArea: Component<Props> = props => {
 			{/* Cells */}
 			<div class="sja-cs">
 				<For each={props.s.cells[0]()}>
-					{cell => (
-						<div class="sja-c">
-							<Dynamic
-								component={CELL_TYPE_TO_COMPONENT.get(
-									cell[0]().type,
-								)}
-								data={cell[0]().data}
-							/>
-						</div>
+					{(cell, idx) => (
+						<>
+							<div class="sja-c-hd">[{idx()}]</div>
+							<div class="sja-c">
+								<Dynamic
+									component={CELL_TYPE_TO_COMPONENT.get(
+										cell[0]().type,
+									)}
+									data={cell[0]().data}
+								/>
+							</div>
+						</>
 					)}
 				</For>
 				<EditingCell s={props.s} />

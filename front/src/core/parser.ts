@@ -1,9 +1,8 @@
 import { TokenZipper, pushToken } from "./token";
-
-export const STRING_PREFIX = '"';
-export const COMMENT_PREFIX = "#";
+import { COMMENT_PREFIX, STRING_PREFIX } from "./expr";
 
 export type ParseOptions = {
+	partial?: boolean;
 	spaceAsSep?: boolean;
 };
 
@@ -18,8 +17,6 @@ export const describeResult = (result: ParseResult): string | undefined => {
 			case '"':
 			case "'":
 				return "Unclosed string";
-			case ")":
-				return "Too many closings";
 		}
 		return "Unknown error with `" + result.left[0] + "`";
 	}
@@ -53,29 +50,25 @@ const skipWhitespaces = (s: ParseState): void => {
 
 const parseString = (s: ParseState): boolean => {
 	let p = s.p;
+	const countSameChars = (max: number): number => {
+		const c = s.s[p];
+		let count = 0;
+		while (s.s[p] === c && count < max) {
+			p++;
+			count++;
+		}
+		return count;
+	};
 	// Detect open and its count
 	const open = s.s[s.p];
-	let openCount = 0;
-	while (s.s[p] === open) {
-		p++;
-		openCount++;
-	}
-	if (openCount === 2) {
-		// Just return empty string
-		pushToken(s.z, STRING_PREFIX);
-		s.p = p;
-		return true;
-	}
+	let openCount = countSameChars(99);
+	if (openCount === 2) (openCount = 1), p--;
 	// Put string
 	let buf = "";
 	while (p < s.m) {
 		if (s.s[p] === open) {
 			// Check closing
-			let closeCount = 0;
-			while (s.s[p] === open && closeCount < openCount) {
-				p++;
-				closeCount++;
-			}
+			const closeCount = countSameChars(openCount);
 			if (closeCount >= openCount) {
 				pushToken(s.z, STRING_PREFIX + buf);
 				s.p = p;
@@ -84,12 +77,10 @@ const parseString = (s: ParseState): boolean => {
 			buf += open.repeat(closeCount);
 		} else if (s.s[p] === "\\") {
 			// Check escape
-			const ls: any = { x: 4, u: 6 };
-			let l = ls[s.s[p + 1]] || 2;
+			const l = { x: 4, u: 6 }[s.s[p + 1]] || 2;
 			const slice = s.s.slice(p, p + l);
 			try {
-				const parsed = JSON.parse(`"${slice}"`);
-				buf += parsed;
+				buf += JSON.parse(`"${slice}"`);
 			} catch {
 				buf += slice;
 			}
@@ -103,47 +94,34 @@ const parseString = (s: ParseState): boolean => {
 	return false;
 };
 
+const parseNumber = (s: ParseState): boolean => {
+	const re = /^[-+]?[0-9]+(\.[0-9]+)?([eE][-+]?[0-9]+)?/;
+	const m = match(s, re);
+	if (!m) return false;
+	pushToken(s.z, parseFloat(m[0]));
+	s.p += m[0].length;
+	return true;
+};
+
 const parseLiteral = (s: ParseState): boolean => {
 	// Extract chars
-	const re = /[^()\s#"@:]+/y;
-	const modRE = /\s*:\s*/y;
+	const re = /(\s*:\s*)?([^()\s#"@:]+)/y;
 	let buf = "";
-	do {
+	for (;;) {
 		const m = match(s, re);
 		if (m) {
 			s.p = re.lastIndex;
-			buf += m[0];
-		}
-		// Check module separator
-		const m2 = match(s, modRE);
-		if (m2) {
-			console.log(m2);
-			s.p = modRE.lastIndex;
-			buf += ":";
-		} else if (!m) {
-			break;
-		}
+			buf += (m[1] ?? "") + m[2];
+		} else break;
 		// Check separator
 		if (!s.o.spaceAsSep && s.s[s.p] === " ") {
 			s.p++;
 			buf += " ";
 		}
-	} while (true);
+	}
 	// Replace _ and white into a single underbar
 	// Strip front/back underbar
-	buf = buf.replace(/[_ ]+/g, "_").replace(/^_+|_+$/g, "");
-	// Extract the part of number
-	const numRE = /^[-+]?[0-9]+(\.[0-9]+)?([eE][-+]?[0-9]+)?/;
-	const numMatch = buf.match(numRE);
-	if (numMatch) {
-		const num = parseFloat(numMatch[0]);
-		pushToken(s.z, num);
-		buf = buf.slice(numMatch[0].length).replace(/^_+|_+$/g, "");
-		if (buf.length === 0) {
-			return true;
-		}
-	}
-	// Otherwise, consider as a symbol
+	buf = buf.replace(/[_ ]+/g, "_").replace(/_+$/g, "");
 	if (buf === "") {
 		return false;
 	}
@@ -151,6 +129,7 @@ const parseLiteral = (s: ParseState): boolean => {
 	return true;
 };
 
+// parse one token
 const parseOne = (s: ParseState): boolean => {
 	skipWhitespaces(s);
 	switch (s.s[s.p]) {
@@ -158,26 +137,23 @@ const parseOne = (s: ParseState): boolean => {
 			return true;
 		case "#":
 			// Skip comment
-			const m = match(s, /#(.*)(\n\s*|$)/y);
-			if (!m) throw new Error("Unreachable");
-			const comment = m[1].trim();
-			pushToken(s.z, COMMENT_PREFIX + comment);
+			const re = s.o.partial ? /#(.*)\n\s*/y : /#(.*)(\n\s*|$)/y;
+			const m = match(s, re);
+			if (!m) return false;
+			pushToken(s.z, COMMENT_PREFIX + m[1].trim());
 			s.p += m[0].length;
 			return true;
 		case "(":
-			s.p++;
-			pushToken(s.z, "(");
-			return true;
 		case ")":
+			pushToken(s.z, s.s[s.p]);
 			s.p++;
-			pushToken(s.z, ")");
 			return true;
 		case '"':
 		case "'":
 			return parseString(s);
 		default: {
 			// Parse literal or ID
-			return parseLiteral(s);
+			return parseNumber(s) || parseLiteral(s);
 		}
 	}
 };

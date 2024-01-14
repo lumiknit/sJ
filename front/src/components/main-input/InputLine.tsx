@@ -10,14 +10,17 @@ import {
 	State,
 	appendToEditing,
 	backspaceToken,
+	commitEditing,
 	executeEditing,
-	moveCursorLeft,
-	moveCursorRight,
+	moveCursorAt,
+	moveCursorOffset,
 } from "../state";
 
 import { addClickEvents } from "@/common";
 import { TbCaretLeft, TbCaretRight, TbRocket, TbSend } from "solid-icons/tb";
 import InputCode, { ValueSignal } from "./InputCode";
+import toast from "solid-toast";
+import { keyCodeToKey } from "@/common/key-map";
 
 type Props = {
 	s: State;
@@ -38,96 +41,125 @@ const InputLine: Component<Props> = props => {
 	onMount(() => {
 		addClickEvents(caretLeftRef, {
 			click: () => {
-				moveCursorLeft(props.s);
+				moveCursorOffset(props.s, -1);
 			},
 			longClick: () => {
-				moveCursorLeft(props.s, true);
+				moveCursorOffset(props.s, -1, true);
 			},
 		});
 		addClickEvents(caretRightRef, {
 			click: () => {
-				moveCursorRight(props.s);
+				moveCursorOffset(props.s, 1);
 			},
 			longClick: () => {
-				moveCursorRight(props.s, true);
+				moveCursorOffset(props.s, 1, true);
 			},
 		});
 	});
 
-	const handleSendClick = (): boolean => {
-		const [v, ss, se] = sig[0]();
+	const getCurrentInput = (): [string, number, number] => {
+		const miRef = props.s.miRef;
+		if (miRef) {
+			return [miRef.value, miRef.selectionStart, miRef.selectionEnd];
+		}
+		return sig[0]();
+	};
+
+	const handleSendClick = (commit?: boolean): boolean => {
+		const [v, ss, se] = getCurrentInput();
 		if (v === "") {
-			// Launch
-			executeEditing(props.s);
+			(commit ? commitEditing : executeEditing)(props.s);
 			return true;
 		} else {
 			const code = v.slice(0, ss) + v.slice(se);
 			const left = appendToEditing(props.s, code, false);
+			console.log(v, left);
 			sig[1]([left, left.length, left.length]);
 			return left.length === 0;
 		}
 	};
 
-	const handleKeyDown = (e: KeyboardEvent) => {
-		let [v, ss, se] = sig[0]();
-		const miRef = props.s.miRef;
-		if (miRef) {
-			v = miRef.value;
-			ss = miRef.selectionStart;
-			se = miRef.selectionEnd;
-		}
-		switch (e.key) {
-			case "ArrowLeft":
-				if (ss === se && ss === 0) {
-					moveCursorLeft(props.s, e.shiftKey);
-					e.preventDefault();
-					return true;
-				}
-				break;
-			case "ArrowRight":
-				if (ss === se && ss === v.length) {
-					moveCursorRight(props.s, e.shiftKey);
-					e.preventDefault();
-					return true;
-				}
-				break;
-			case "Backspace":
-				if (ss === se && ss === 0) {
-					e.preventDefault();
-					backspaceToken(props.s);
-					return true;
-				}
-				break;
-		}
+	const handleInput = (e: InputEvent) => {
+		if (e.isComposing) return;
+		const [v, ss, se] = getCurrentInput();
+		const o = props.s.o[0]();
 		if (
-			(props.s.o.sendOnSep &&
-				e.key === " " &&
-				se === v.length &&
-				(props.s.o.spaceAsSep || v[ss - 1] === " ")) ||
-			e.key === "Enter"
+			ss === se &&
+			se === v.length &&
+			o.sendOnSep &&
+			(v.endsWith("  ") || (o.spaceAsSep && v.endsWith(" ")))
 		) {
-			if (handleSendClick()) {
+			if (handleSendClick(true)) {
 				e.preventDefault();
 				return true;
 			}
 		}
 	};
 
+	const handleKeyDown = (e: KeyboardEvent) => {
+		let ret = false;
+		const handled = () => {
+			ret = true;
+			e.preventDefault();
+		};
+		const key = e.key || keyCodeToKey(e.keyCode);
+		const [v, ss, se] = getCurrentInput();
+		switch (key) {
+			case "ArrowLeft":
+				if (ss === se && ss === 0) {
+					moveCursorOffset(props.s, -1, e.shiftKey);
+					handled();
+				}
+				break;
+			case "ArrowRight":
+				if (ss === se && ss === v.length) {
+					moveCursorOffset(props.s, 1, e.shiftKey);
+					handled();
+				}
+				break;
+			case "Home":
+				if (ss === se && ss === 0) {
+					moveCursorAt(props.s, 0, e.shiftKey);
+					handled();
+				}
+				break;
+			case "End":
+				if (ss === se && ss === v.length) {
+					moveCursorAt(props.s, Infinity, e.shiftKey);
+					handled();
+				}
+				break;
+			case "Backspace":
+				if (ss === se && ss === 0) {
+					backspaceToken(props.s);
+					handled();
+				}
+				break;
+			case "Enter":
+				if (handleSendClick(true)) {
+					handled();
+				}
+				break;
+		}
+		return ret;
+	};
+
 	return (
 		<div class="sj-mi-w">
 			<div class="sj-mi-ln">
-				<button ref={caretLeftRef!}>
+				<button ref={caretLeftRef!} tabIndex={-1}>
 					<TbCaretLeft />
 				</button>
 				<InputCode
 					ref={props.s.miRef}
 					sig={sig}
 					onKeyDown={handleKeyDown}
+					onInput={handleInput}
 				/>
-				<button ref={caretRightRef!}>
+				<button ref={caretRightRef!} tabIndex={-1}>
 					<TbCaretRight />
 				</button>
-				<button onClick={handleSendClick}>
+				<button onClick={() => handleSendClick()}>
 					<Switch>
 						<Match when={isEmpty()}>
 							<TbRocket />

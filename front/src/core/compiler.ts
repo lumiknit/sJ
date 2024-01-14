@@ -1,4 +1,4 @@
-import { ExprType, Exprs, exprType } from "./expr";
+import { ExprType, Exprs, PUSH_PREFIX, POP_PREFIX, exprType } from "./expr";
 import {
 	BUILT_IN_MAGIC_VALUE,
 	Index,
@@ -29,7 +29,9 @@ enum SymType {
 	Default, // If function, call, otherwise, push
 	Push, // Even if function, push
 	Pop, // Pop and set to symbol
+	Fn, // Function
 }
+
 type SymItem = {
 	type: SymType;
 	idx: Index;
@@ -40,13 +42,21 @@ type BuiltIn =
 	| string // literal
 	| SymItem; // symbol
 
-type CdGroup = BuiltIn[] | number; // Invoke specific symbol
+type BIGroup =
+	| BuiltIn[] // List of built-ins
+	| number; // Or name of function
 
-type Fn = CdGroup[];
+type Fn = {
+	idx: Index;
+	bi: BIGroup[];
+};
 
 const scanExprs = (vm: VM, es: Exprs, isRoot?: boolean): Fn => {
-	let fn: Fn = [];
-	let cdGroup: CdGroup = [];
+	let fn: Fn = {
+		idx: -1,
+		bi: [],
+	};
+	let cdGroup: BIGroup = [];
 	const toScan = [];
 	for (const e of es) {
 		switch (exprType(e)) {
@@ -58,7 +68,7 @@ const scanExprs = (vm: VM, es: Exprs, isRoot?: boolean): Fn => {
 				break;
 			case ExprType.Id:
 				const s = e as string;
-				if (s.startsWith("=_")) {
+				if (s.startsWith(POP_PREFIX)) {
 					// This is set operation
 					const name = s.slice(2);
 					const idx = addSymbol(vm, name);
@@ -66,7 +76,7 @@ const scanExprs = (vm: VM, es: Exprs, isRoot?: boolean): Fn => {
 						type: SymType.Pop,
 						idx,
 					});
-				} else if (s.startsWith("`")) {
+				} else if (s.startsWith(PUSH_PREFIX)) {
 					// This is a push
 					const name = s.slice(1);
 					const [idx] = getSymbol(vm, name);
@@ -86,10 +96,10 @@ const scanExprs = (vm: VM, es: Exprs, isRoot?: boolean): Fn => {
 					} else {
 						// non built-in split cdGroup
 						if (cdGroup.length > 0) {
-							fn.push(cdGroup);
+							fn.bi.push(cdGroup);
 							cdGroup = [];
 						}
-						fn.push(idx);
+						fn.bi.push(idx);
 					}
 				}
 				break;
@@ -99,7 +109,7 @@ const scanExprs = (vm: VM, es: Exprs, isRoot?: boolean): Fn => {
 		}
 	}
 	if (cdGroup.length > 0) {
-		fn.push(cdGroup);
+		fn.bi.push(cdGroup);
 	}
 	return fn;
 };

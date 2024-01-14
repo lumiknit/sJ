@@ -1,13 +1,17 @@
-import { exprsToString, tokensToExpr } from "@/core";
-import { describeResult, parse } from "@/core/parser";
+import { loadString, saveString } from "@/common/clipboard";
+import { ppExprs, tokensToExpr } from "@/core";
+import { COMMENT_PREFIX, describeResult, parse } from "@/core";
 import {
 	TokenZipper,
-	deleteTokens,
-	emptyTokenZipper,
+	backspaceTokens,
+	extractSelectedTokens,
 	joinTokenZipper,
-	moveTokenZipperInplace,
+	moveCursorOfTokenZipperInplace,
+	splitTokens,
+	tokensToString,
 } from "@/core/token";
-import { Signal, createSignal } from "solid-js";
+import { isMobile } from "@/mobile-detect";
+import { Signal, createSignal, untrack } from "solid-js";
 
 // Helper types
 
@@ -17,7 +21,7 @@ export type Options = {
 };
 
 export const defaultOptions = (): Options => ({
-	spaceAsSep: false,
+	spaceAsSep: isMobile ? false : true,
 	sendOnSep: true,
 });
 
@@ -47,7 +51,7 @@ export type State = {
 	cells: Signal<Signal<Cell>[]>;
 
 	// Options
-	o: Options;
+	o: Signal<Options>;
 };
 
 // Constructor
@@ -56,12 +60,12 @@ export const newState = (options: Options): State => {
 	return {
 		e: createSignal<EditingState>(
 			{
-				ez: emptyTokenZipper(),
+				ez: splitTokens([], 0),
 			},
 			{ equals: false },
 		),
 		cells: createSignal<Signal<Cell>[]>([]),
-		o: options,
+		o: createSignal(options),
 	};
 };
 
@@ -100,7 +104,21 @@ const pushRawCell = (state: State, data: string) => {
 	scrollToBottom(state);
 };
 
+const pushCell = (state: State, type: string, data: any): number => {
+	state.cells[1](cs => [...cs, createSignal({ type, data })]);
+	scrollToBottom(state);
+	return state.cells[0]().length - 1;
+};
+
 // Methods
+
+export const toggleSpaceAsSep = (state: State): boolean | undefined => {
+	state.o[1](o => ({
+		...o,
+		spaceAsSep: !o.spaceAsSep,
+	}));
+	return untrack(state.o[0]).spaceAsSep;
+};
 
 const keepMark = (tz: TokenZipper, flag?: boolean) => {
 	if (flag && tz[2] === undefined) {
@@ -110,20 +128,14 @@ const keepMark = (tz: TokenZipper, flag?: boolean) => {
 	}
 };
 
-export const moveCursorLeft = (state: State, keepMarkFlag?: boolean) => {
+export const moveCursorOffset = (
+	state: State,
+	delta: number,
+	keepMarkFlag?: boolean,
+) => {
 	state.e[1](es => {
 		keepMark(es.ez, keepMarkFlag);
-		moveTokenZipperInplace(es.ez, es.ez[0].length - 1);
-		console.log(es.ez);
-		return es;
-	});
-	focusMainInput(state);
-};
-
-export const moveCursorRight = (state: State, keepMarkFlag?: boolean) => {
-	state.e[1](es => {
-		keepMark(es.ez, keepMarkFlag);
-		moveTokenZipperInplace(es.ez, es.ez[0].length + 1);
+		moveCursorOfTokenZipperInplace(es.ez, es.ez[0].length + delta);
 		console.log(es.ez);
 		return es;
 	});
@@ -135,30 +147,25 @@ export const moveCursorAt = (
 	pos: number,
 	keepMarkFlag?: boolean,
 ) => {
-	console.log(keepMarkFlag);
 	state.e[1](es => {
+		const p = Math.min(Math.max(pos, 0), es.ez[0].length + es.ez[1].length);
 		keepMark(es.ez, keepMarkFlag);
-		console.log(es.ez);
 		// If same position is specified, turn off mark.
-		if (!keepMarkFlag && pos === es.ez[0].length) {
+		if (!keepMarkFlag && p === es.ez[0].length) {
 			es.ez[2] = undefined;
-			console.log("Disable", es.ez);
 		}
-		moveTokenZipperInplace(es.ez, pos);
-		console.log(es.ez);
+		moveCursorOfTokenZipperInplace(es.ez, p);
 		return es;
 	});
 	focusMainInput(state);
 };
 
-export const backspaceToken = (state: State) => {
-	state.e[1](es => {
-		const z = deleteTokens(es.ez);
-		return {
-			...es,
-			ez: z,
-		};
-	});
+export const backspaceToken = (state: State): boolean => {
+	state.e[1](es => ({
+		...es,
+		ez: backspaceTokens(es.ez),
+	}));
+	return true;
 };
 
 export const appendToEditing = (
@@ -169,10 +176,11 @@ export const appendToEditing = (
 	let r = chunk;
 	state.e[1](es => {
 		if (es.ez[2] !== undefined) {
-			es.ez = deleteTokens(es.ez);
+			es.ez = backspaceTokens(es.ez);
 		}
 		const result = parse(es.ez, chunk, {
-			spaceAsSep: state.o.spaceAsSep,
+			partial: true,
+			spaceAsSep: state.o[0]().spaceAsSep,
 		});
 		state.eMsg = describeResult(result);
 		if (state.eMsg) {
@@ -193,10 +201,51 @@ export const executeEditing = (state: State) => {
 	const tokens = joinTokenZipper(state.e[0]().ez);
 	// Convert into expr
 	const exprs = tokensToExpr(tokens);
-	pushRawCell(state, "Launch:\n" + exprsToString(exprs));
+	pushCell(
+		state,
+		"codeInput",
+		ppExprs(exprs, {
+			spaceAsSep: state.o[0]().spaceAsSep,
+		}),
+	);
 	// Clear editing
 	state.e[1](es => {
-		es.ez = emptyTokenZipper();
+		es.ez = splitTokens([], 0);
 		return es;
 	});
+};
+
+export const commitEditing = (state: State) => {
+	const z = state.e[0]().ez;
+	if (z[1].length === 0 && z[2] === undefined) {
+		const l = z[0];
+		const lt = l[l.length - 1];
+		if (lt === COMMENT_PREFIX) {
+			l.pop();
+			executeEditing(state);
+		} else {
+			appendToEditing(state, `${COMMENT_PREFIX}\n`);
+		}
+	}
+};
+
+export const copySelectedEditing = (state: State): boolean => {
+	const tokens = extractSelectedTokens(state.e[0]().ez);
+	if (tokens.length === 0) return false;
+	const s = tokensToString(tokens);
+	saveString(s);
+	return true;
+};
+
+export const cutSelectedEditing = (state: State): boolean =>
+	copySelectedEditing(state) && backspaceToken(state);
+
+export const pasteEditing = async (
+	state: State,
+): Promise<boolean | undefined> => {
+	const s = await loadString();
+	if (s) {
+		appendToEditing(state, s);
+		return true;
+	}
 };

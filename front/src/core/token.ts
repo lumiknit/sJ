@@ -1,5 +1,7 @@
 // Expr
 
+import { COMMENT_PREFIX, STRING_PREFIX } from "./expr";
+
 export type Token = number | string; // String or comment or id
 export type Tokens = Token[];
 
@@ -7,49 +9,73 @@ export type Tokens = Token[];
 
 export type TokenZipper = [Tokens, Tokens, number?];
 
-export const emptyTokens = (): Tokens => [];
-export const emptyTokenZipper = (): TokenZipper => [[], []];
+export const splitTokens = (tokens: Tokens, cursor: number): TokenZipper => [
+	tokens.slice(0, cursor),
+	tokens.slice(cursor).reverse(),
+];
 
-export const splitTokens = (tokens: Tokens, cursor: number): TokenZipper => {
-	return [tokens.slice(0, cursor), tokens.slice(cursor).reverse()];
-};
+export const joinTokenZipper = (z: TokenZipper): Tokens => [
+	...z[0],
+	...z[1].reverse(),
+];
 
-export const joinTokenZipper = (z: TokenZipper): Tokens => {
-	return [...z[0], ...z[1].reverse()];
-};
-
-export const moveTokenZipperInplace = (
+export const moveCursorOfTokenZipperInplace = (
 	z: TokenZipper,
 	pos: number,
 ): TokenZipper => {
 	const [l, r, c] = z;
 	pos = Math.min(Math.max(pos, 0), l.length + r.length);
-	if (pos > l.length) {
-		const n = r.length - (pos - l.length);
-		l.push(...r.slice(n).reverse());
-		r.splice(n);
-	} else if (pos < l.length) {
-		r.push(...l.slice(pos).reverse());
-		l.splice(pos);
-	}
+	if (pos > l.length)
+		l.push(...r.splice(r.length - (pos - l.length)).reverse());
+	else if (pos < l.length) r.push(...l.splice(pos).reverse());
 	return [l, r, c];
 };
 
 export const pushToken = (zipper: TokenZipper, token: Token) => {
-	if (zipper[2] !== undefined && zipper[2] >= zipper[0].length) {
-		zipper[0].length++;
-	}
+	if (zipper[2]! >= zipper[0].length) zipper[0].length++;
 	zipper[0].push(token);
 };
 
-export const deleteTokens = (zipper: TokenZipper): TokenZipper => {
+export const backspaceTokens = (zipper: TokenZipper): TokenZipper => {
+	const [l, r, c] = zipper;
+	if (c! < l.length) {
+		l.splice(c!);
+	} else if (c! > l.length) {
+		r.splice(r.length - (c! - l.length));
+	} else {
+		l.pop();
+	}
+	return [l, r];
+};
+
+export const extractSelectedTokens = (zipper: TokenZipper): Tokens => {
 	const [l, r, c] = zipper;
 	if (c === undefined) {
-		l.pop();
+		return [];
 	} else if (c < l.length) {
-		l.splice(c);
+		return l.slice(c);
 	} else if (c > l.length) {
-		r.splice(r.length - (c - l.length));
+		return r.slice(r.length - (c - l.length)).reverse();
 	}
-	return [l, r, undefined];
+	return [];
+};
+
+export const tokensToString = (tokens: Tokens): string => {
+	let s = "";
+	for (const t of tokens) {
+		if (typeof t === "string") {
+			if (t.startsWith(COMMENT_PREFIX)) {
+				s += t + "\n";
+			} else if (t.startsWith(STRING_PREFIX)) {
+				s += JSON.stringify(t.slice(1));
+			} else {
+				if (s.length > 0) s += "  ";
+				s += t;
+			}
+		} else {
+			if (s.length > 0) s += "  ";
+			s += t.toString();
+		}
+	}
+	return s;
 };
