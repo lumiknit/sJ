@@ -1,6 +1,7 @@
 import { loadString, saveString } from "@/common/clipboard";
-import { ppExprs, tokensToExpr } from "@/core";
+import { VM, newVM, ppExprs, tokensToExpr } from "@/core";
 import { COMMENT_PREFIX, describeResult, parse } from "@/core";
+import { compile } from "@/core/compiler";
 import {
 	TokenZipper,
 	backspaceTokens,
@@ -50,6 +51,9 @@ export type State = {
 	// Cells
 	cells: Signal<Signal<Cell>[]>;
 
+	// VM
+	vm: VM;
+
 	// Options
 	o: Signal<Options>;
 };
@@ -66,6 +70,7 @@ export const newState = (options: Options): State => {
 		),
 		cells: createSignal<Signal<Cell>[]>([]),
 		o: createSignal(options),
+		vm: newVM(),
 	};
 };
 
@@ -208,6 +213,7 @@ export const executeEditing = (state: State) => {
 			spaceAsSep: state.o[0]().spaceAsSep,
 		}),
 	);
+	compile(state.vm, exprs);
 	// Clear editing
 	state.e[1](es => {
 		es.ez = splitTokens([], 0);

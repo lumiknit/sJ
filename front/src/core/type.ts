@@ -1,4 +1,4 @@
-import { BUILT_IN_MAGICS, BUILT_IN_MODULE } from "./compiler";
+import { Exprs } from "./expr";
 
 export type Index = number;
 
@@ -13,7 +13,7 @@ export type VM = {
 
 	// Compiled code (function)
 	fn2idx: Map<string, Index>;
-	idx2code: string[];
+	idx2code: Exprs[];
 	idx2impl: ((thread: Thread) => Promise<void>)[];
 
 	global: any;
@@ -34,13 +34,6 @@ export const newVM = (): VM => {
 
 		trigger: () => {},
 	};
-	for (const m of BUILT_IN_MAGICS) {
-		for (const prefix of ["", ":", `${BUILT_IN_MODULE}:`]) {
-			// Add magic
-			vm.sym2idx.set(`${prefix}${m}`, vm.idx2sym.length);
-			vm.idx2sym.push([`${prefix}${m}`, BUILT_IN_MAGIC_VALUE]);
-		}
-	}
 	return vm;
 };
 
@@ -62,6 +55,13 @@ export const getSymbol = (vm: VM, name: string): [number, any] => {
 		throw new Error(`Symbol ${name} is not found`);
 	}
 	return [idx, vm.idx2sym[idx][1]];
+};
+
+export const allocFn = (vm: VM, exprs: Exprs): Index => {
+	const idx = vm.idx2code.length;
+	vm.idx2code.push(exprs);
+	vm.idx2impl.push(async () => {});
+	return idx;
 };
 
 export type Thread = {
