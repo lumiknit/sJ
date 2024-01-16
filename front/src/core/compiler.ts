@@ -11,57 +11,15 @@ import {
 
 const THREAD_VAR_NAME = "t";
 
-const asyncFuncConstructor = Object.getPrototypeOf(async () => {}).constructor;
+const AsyncFunction = Object.getPrototypeOf(async () => {}).constructor;
 
 const makeAsyncFunc = (code: string): ((t: Thread) => Promise<void>) => {
-	return new asyncFuncConstructor(THREAD_VAR_NAME, code) as (
+	return new AsyncFunction(THREAD_VAR_NAME, code) as (
 		t: Thread,
 	) => Promise<void>;
 };
 
-// Built-in magics
-
-export const BUILT_IN_MAGICS = [
-	"dup",
-	"swap",
-	"print",
-	"+",
-	"-",
-	"*",
-	"=",
-	"!=",
-	"<",
-	">",
-	"&",
-	"|",
-	",",
-	"[",
-	"]",
-	"sep",
-];
-
-export const BUILT_IN_ARG_MAGICS = [".", ".."];
-
-export const BUILT_IN_MAGICS_SET = new Set(BUILT_IN_MAGICS);
-export const BUILT_IN_ARG_MAGICS_SET = new Set(BUILT_IN_ARG_MAGICS);
-
-const extractArgFromMagic = (s: string): [string, number] => {
-	let p = s.length;
-	let arg = 0,
-		d = 1;
-	const zero = "0".charCodeAt(0),
-		nine = "9".charCodeAt(0);
-	while (p > 0) {
-		const c = s[p - 1].charCodeAt(0);
-		if (c < zero || c > nine) break;
-		arg += d * (c - zero);
-		d *= 10;
-		p--;
-	}
-	return [s.slice(0, p), arg];
-};
-
-// Compiler
+// Scaned Types
 
 enum SymType {
 	Default, // If function, call, otherwise, push
@@ -90,6 +48,163 @@ type Fn = {
 	idx: Index;
 	gs: OpGroup[];
 };
+
+// ---
+// Convert sJ to JS
+
+type JSCode = string;
+type JSConvEntry = string;
+type JSConvState = {
+	sp: number;
+	minSp: number;
+	maxSp: number;
+	varCnt: number;
+	stack: JSConvEntry[];
+};
+
+// Helpers
+const newJSVar = (state: JSConvState): string => {
+	// Convert to base 36
+	let name = state.varCnt.toString(36);
+	state.varCnt++;
+	return "_" + name;
+};
+
+const offJSStack = (state: JSConvState, off: number): number => {
+	const idx = state.sp + off;
+	state.maxSp = Math.max(state.maxSp, idx);
+	state.minSp = Math.min(state.minSp, idx);
+	return idx;
+};
+
+const moveJSSp = (state: JSConvState, off: number) => {
+	const idx = offJSStack(state, off);
+	state.sp = idx;
+};
+
+const getJSVarAt = (state: JSConvState, off: number): string => {
+	const idx = offJSStack(state, off);
+	if (state.stack[idx] === undefined) {
+		state.stack[idx] = newJSVar(state);
+	}
+	return state.stack[idx];
+};
+
+const pushJSValue = (state: JSConvState, expr: JSCode): JSCode => {
+	const varName = getJSVarAt(state, 1);
+	state.sp++;
+	return `${varName} = ${expr};`;
+};
+
+const pushJSLiteralCode = (
+	state: JSConvState,
+	value: number | string,
+): JSCode => {
+	// Check if the variable exists
+	return pushJSValue(state, JSON.stringify(value));
+};
+
+export type MagicToJS = (s: JSConvState, arg?: number) => JSCode;
+
+const magicToJSs: {[key: string]: MagicToJS} = {
+	"dup": s => pushJSValue(s, getJSVarAt(s, 0)),
+	"swap": s => `${getJSVarAt(s, 0)} = ${getJSVarAt(s, 1)}; ${getJSVarAt(s, 1)} = ${getJSVarAt(s, 0)};`,
+};
+
+const argMagicToJSs: {[key: string]: MagicToJS} = {
+	".": (s, arg) => pushJSValue(s, `${getJSVarAt(s, 0)}[${arg}]`),
+};
+
+const fnToJS = (vm: VM, fn: Fn): ((t: Thread) => Promise<void>) => {
+	const s: JSConvState = {
+		sp: 0,
+		minSp: 0,
+		maxSp: 0,
+		varCnt: 0,
+		stack: [],
+	};
+	const js: JSCode[] = [];
+	for (const gs of fn.gs) {
+		if (typeof gs === "number") {
+			// In this case, call function if it's function
+			const setter = `const _f = ${THREAD_VAR_NAME}.vm.idx2impl[${gs}];`;
+			const cond = `if(typeof _f === "function")`;
+			const thenClause = `await _f(${THREAD_VAR_NAME});`;
+			const elseClause = `${THREAD_VAR_NAME}.stk.push(_f);`;
+			js.push(`${setter}${cond}{${thenClause}}else{${elseClause}}`);
+			continue;
+		}
+		// Otherwise convert instructions
+		const block: JSCode[] = [];
+		for (const g of gs) {
+			switch (typeof g) {
+				case "number":
+				case "string":
+					block.push(pushJSLiteralCode(s, g));
+					break;
+				default:
+					const sym = g as SymItem;
+					switch (sym.type) {
+						case SymType.Default: {
+							// Built-in call
+							const converter = argMagicToJSs[sym.name] || magicToJSs[sym.name];
+							if(!converter) {
+								throw new Error(`Unknown built-in ${sym.name}`);
+							}
+							block.push(converter(s, sym.arg));
+						} break;
+						case SymType.Push:
+							block.push(
+								pushJSValue(
+									s,
+									`${THREAD_VAR_NAME}.vm.idx2sym[${sym.idx}]`,
+								),
+							);
+							break;
+						case SymType.Pop:
+							s.stack.push(sym.name);
+							break;
+						case SymType.Fn:
+							block.push(
+								pushJSValue(
+									s,
+									`${THREAD_VAR_NAME}.vm.idx2sym[${sym.idx}]`,
+								),
+							);
+							break;
+					}
+					break;
+			}
+		}
+		js.push(`{${block.join("\n")}}`);
+	}
+};
+
+// ---
+// Built-in magics
+
+export const BUILT_IN_MAGICS = Object.keys(magicToJSs);
+export const BUILT_IN_ARG_MAGICS = Object.keys(argMagicToJSs);
+export const BUILT_IN_MAGICS_SET = new Set(BUILT_IN_MAGICS);
+export const BUILT_IN_ARG_MAGICS_SET = new Set(BUILT_IN_ARG_MAGICS);
+
+const extractArgFromMagic = (s: string): [string, number] => {
+	let p = s.length;
+	let arg = 0,
+		d = 1;
+	const zero = "0".charCodeAt(0),
+		nine = "9".charCodeAt(0);
+	while (p > 0) {
+		const c = s[p - 1].charCodeAt(0);
+		if (c < zero || c > nine) break;
+		arg += d * (c - zero);
+		d *= 10;
+		p--;
+	}
+	return [s.slice(0, p), arg];
+};
+
+// Scanner
 
 type ScanResult = {
 	f: Fn[];
@@ -204,120 +319,6 @@ const scanExprs = (
 	}
 	res.f.push(fn);
 	return fn;
-};
-
-// Convert to JS
-
-type JSCode = string;
-type JSConvEntry = string;
-type JSConvState = {
-	sp: number;
-	minSp: number;
-	maxSp: number;
-	varCnt: number;
-	stack: JSConvEntry[];
-};
-
-const newJSVar = (state: JSConvState): string => {
-	// Convert to base 36
-	let name = state.varCnt.toString(36);
-	state.varCnt++;
-	return "_" + name;
-};
-
-const offJSStack = (state: JSConvState, off: number): number => {
-	const idx = state.sp + off;
-	state.maxSp = Math.max(state.maxSp, idx);
-	state.minSp = Math.min(state.minSp, idx);
-	return idx;
-};
-
-const moveJSSp = (state: JSConvState, off: number) => {
-	const idx = offJSStack(state, off);
-	state.sp = idx;
-};
-
-const getJSVarAt = (state: JSConvState, off: number): string => {
-	const idx = offJSStack(state, off);
-	if (state.stack[idx] === undefined) {
-		state.stack[idx] = newJSVar(state);
-	}
-	return state.stack[idx];
-};
-
-const pushJSValue = (state: JSConvState, expr: JSCode): JSCode => {
-	const varName = getJSVarAt(state, 1);
-	state.sp++;
-	return `${varName} = ${expr};`;
-};
-
-const pushJSLiteralCode = (
-	state: JSConvState,
-	value: number | string,
-): JSCode => {
-	// Check if the variable exists
-	return pushJSValue(state, JSON.stringify(value));
-};
-
-const fnToJS = (vm: VM, fn: Fn): ((t: Thread) => Promise<void>) => {
-	const s: JSConvState = {
-		sp: 0,
-		minSp: 0,
-		maxSp: 0,
-		varCnt: 0,
-		stack: [],
-	};
-	const js: JSCode[] = [];
-	for (const gs of fn.gs) {
-		if (typeof gs === "number") {
-			// In this case, call function if it's function
-			const setter = `const _f = ${THREAD_VAR_NAME}.vm.idx2impl[${gs}];`;
-			const cond = `if(typeof _f === "function")`;
-			const thenClause = `await _f(${THREAD_VAR_NAME});`;
-			const elseClause = `${THREAD_VAR_NAME}.stk.push(_f);`;
-			js.push(`${setter}${cond}{${thenClause}}else{${elseClause}}`);
-			continue;
-		}
-		// Otherwise convert instructions
-		const block: JSCode[] = [];
-		for (const g of gs) {
-			switch (typeof g) {
-				case "number":
-				case "string":
-					block.push(pushJSLiteralCode(s, g));
-					break;
-				default:
-					const sym = g as SymItem;
-					switch (sym.type) {
-						case SymType.Default:
-							// Built-in call
-							s.stack.push(sym.name);
-							break;
-						case SymType.Push:
-							block.push(
-								pushJSValue(
-									s,
-									`${THREAD_VAR_NAME}.vm.idx2sym[${sym.idx}]`,
-								),
-							);
-							break;
-						case SymType.Pop:
-							s.stack.push(sym.name);
-							break;
-						case SymType.Fn:
-							block.push(
-								pushJSValue(
-									s,
-									`${THREAD_VAR_NAME}.vm.idx2sym[${sym.idx}]`,
-								),
-							);
-							break;
-					}
-					break;
-			}
-		}
-		js.push(`{${block.join("\n")}}`);
-	}
 };
 
 export const compile = (vm: VM, es: Exprs): number => {
